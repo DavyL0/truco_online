@@ -217,10 +217,10 @@ class Renderer3D {
 
     this.characters = [];
     const characterSpecs = [
-      { rel: 0, pos: [0, 0, 8], rotY: Math.PI },
-      { rel: 2, pos: [0, 0, -8], rotY: 0 },
-      { rel: 1, pos: [-8, 0, 0], rotY: Math.PI / 2 },
-      { rel: 3, pos: [8, 0, 0], rotY: -Math.PI / 2 },
+      { rel: 0, pos: [0, 0, 10], rotY: Math.PI },
+      { rel: 2, pos: [0, 0, -10], rotY: 0 },
+      { rel: 1, pos: [-10, 0, 0], rotY: Math.PI / 2 },
+      { rel: 3, pos: [10, 0, 0], rotY: -Math.PI / 2 },
     ];
 
     const attachModel = (character) => {
@@ -258,25 +258,12 @@ class Renderer3D {
       group.position.set(...spec.pos);
       group.rotation.y = spec.rotY;
 
-      const labelCanvas = document.createElement('canvas');
-      labelCanvas.width = 256;
-      labelCanvas.height = 64;
-      const labelContext = labelCanvas.getContext('2d');
-      const labelTexture = new THREE.CanvasTexture(labelCanvas);
-      const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture, transparent: true }));
-      labelSprite.position.set(0, 2.35, 0);
-      labelSprite.scale.set(2.4, 0.6, 1);
-      group.add(labelSprite);
-
       group.visible = false;
       this.scene.add(group);
 
       const character = {
         rel: spec.rel,
         group,
-        labelCanvas,
-        labelTexture,
-        labelContext,
         model: null,
       };
       this.characters.push(character);
@@ -428,21 +415,6 @@ class Renderer3D {
       if (character.model && character.baseY !== undefined) {
         character.model.position.y = character.baseY;
       }
-      const context = character.labelContext;
-      context.clearRect(0, 0, 256, 64);
-      context.font = 'bold 26px sans-serif';
-      context.textAlign = 'center';
-      context.textBaseline = 'middle';
-      context.fillStyle = '#ffffff';
-      context.shadowColor = '#000000';
-      context.shadowBlur = 4;
-      context.fillText(player.name, 128, 22);
-      if (player.isBot) {
-        context.font = '16px sans-serif';
-        context.fillStyle = '#dddddd';
-        context.fillText('BOT', 128, 48);
-      }
-      character.labelTexture.needsUpdate = true;
     });
 
     const wanted = {};
@@ -472,7 +444,7 @@ class Renderer3D {
             rotationY = Math.PI / 2;
           } else if (relativeSeat === 3) {
             position = [6.0, 1.05, offset * 0.9];
-            rotationY = Math.PI / 2;
+            rotationY = -Math.PI / 2;
           } else {
             position = [offset * 0.9, 1.05, 6];
           }

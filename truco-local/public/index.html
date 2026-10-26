@@ -31,6 +31,7 @@ button.r{background:#b3402e;color:#fff}button.g{background:#3f8f57;color:#fff}bu
 <button class="s" id="cp">Copiar link</button>
 <div id="pls" style="margin:10px 0;text-align:left"></div><div class="sm" id="lh"></div><div id="ls"></div></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -119,6 +120,52 @@ class NetworkService {
 }
 
 /* ---------- Renderização 3D ---------- */
+
+function createMonkeyChair(){
+  const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+  const mat=c=>new THREE.MeshStandardMaterial({color:c,flatShading:true,roughness:.85,metalness:0});
+  const M={fur:mat(0x8a5a3c),dark:mat(0x5a3a28),skin:mat(0xd9a07e),face:mat(0xc98a74),
+    chair:mat(0x7f8c8d),eye:mat(0x1a1210),hat:mat(0xf2cf2e),brim:mat(0x2f86b8),
+    p1:mat(0xe0452f),p2:mat(0x4fae4a),p3:mat(0xf08a24),p4:mat(0xffffff)};
+  const g=new THREE.Group();
+  const add=(geo,m,x,y,z,sx=1,sy=1,sz=1)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.castShadow=true;g.add(o);return o};
+  const ico=new THREE.IcosahedronGeometry(1,0), box=new THREE.BoxGeometry(1,1,1);
+  const limb=(a,b,r1,r2,m)=>{const d=b.clone().sub(a),len=d.length();
+    const o=new THREE.Mesh(new THREE.CylinderGeometry(r2,r1,len,6),m);
+    o.position.copy(a).add(b).multiplyScalar(.5);
+    o.quaternion.setFromUnitVectors(V(0,1,0),d.normalize());o.castShadow=true;g.add(o)};
+
+  // --- Cadeira (cor diferente) ---
+  add(box,M.chair,0,.52,0,.9,.07,.85);
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>add(box,M.chair,sx*.38,.25,sz*.35,.07,.5,.07));
+  add(box,M.chair,0,.9,-.4,.06,.0001,.0001);
+  const back=new THREE.Group();back.position.set(0,.55,-.4);back.rotation.x=-.18;g.add(back);
+  const b=(x,y,sx,sy,sz)=>{const o=new THREE.Mesh(box,M.chair);o.position.set(x,y,0);o.scale.set(sx,sy,sz);o.castShadow=true;back.add(o)};
+  b(0,.78,.95,.09,.07); b(-.46,.4,.07,.8,.07); b(.46,.4,.07,.8,.07);
+  for(let i=-2;i<=2;i++) b(i*.18,.4,.08,.7,.04);
+  [-1,1].forEach(s=>{add(box,M.chair,s*.47,.8,-.05,.07,.07,.65);add(box,M.chair,s*.47,.66,.25,.07,.28,.07);add(box,M.chair,s*.47,.7,-.38,.07,.3,.07)});
+
+  // --- Macaco ---
+  add(ico,M.fur,0,1.05,-.15,.38,.5,.3);            // tronco
+  add(ico,M.skin,0,1.0,-.02,.22,.32,.17);          // barriga
+  add(ico,M.fur,0,.7,-.08,.34,.2,.3);              // quadris
+  add(ico,M.fur,0,1.68,-.05,.28,.27,.27);          // cabeça
+  add(ico,M.face,0,1.64,.14,.2,.18,.13);          // rosto
+  add(box,M.eye,0,1.548,.258,.07,.014,.012);[-1,1].forEach(q=>{const m=add(box,M.eye,q*.06,1.56,.252,.06,.014,.012);m.rotation.set(0,q*.45,q*.45)});          // focinho
+  [-1,1].forEach(s=>{
+    add(ico,M.eye,s*.085,1.7,.255,.04,.04,.03);     // olhos
+    add(ico,M.fur,s*.29,1.68,-.05,.05,.1,.09);   // orelhas
+    const sh=V(s*.38,1.3,-.15),el=V(s*.5,1.0,0),ha=V(s*.5,.84,.2);   // braços
+    limb(sh,el,.1,.08,M.fur);limb(el,ha,.08,.06,M.fur);
+    add(ico,M.dark,ha.x,ha.y,ha.z+.02,.07,.045,.1);
+    const hi=V(s*.15,.68,-.05),kn=V(s*.17,.7,.45),an=V(s*.17,.22,.5);// pernas
+    limb(hi,kn,.13,.09,M.fur);limb(kn,an,.09,.06,M.fur);
+    add(ico,M.dark,an.x,.13,.57,.07,.05,.12);
+  });
+
+  return g;
+}
+
 class Renderer3D {
   constructor(app) {
     this.app = app;
@@ -168,6 +215,74 @@ class Renderer3D {
     rim.position.y = -0.05;
     this.scene.add(rim);
 
+    this.characters = [];
+    const characterSpecs = [
+      { rel: 0, pos: [0, 0, 8], rotY: Math.PI },
+      { rel: 2, pos: [0, 0, -8], rotY: 0 },
+      { rel: 1, pos: [-8, 0, 0], rotY: Math.PI / 2 },
+      { rel: 3, pos: [8, 0, 0], rotY: -Math.PI / 2 },
+    ];
+
+    const attachModel = (character) => {
+      const model = createMonkeyChair();
+
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+
+      // escala para altura alvo (~2 unidades)
+      const targetHeight = 2.0;
+      const scale = targetHeight / (size.y || 1);
+      model.scale.setScalar(scale);
+
+      // aumenta 5x o modelo do macaco
+      model.scale.multiplyScalar(5);
+
+      // reposiciona para ficar com o centro na altura da mesa (y = 0)
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.y = -center.y * scale * 5;
+      character.baseY = model.position.y;
+
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+
+      character.model = model;
+      character.group.add(model);
+    };
+
+    characterSpecs.forEach((spec) => {
+      const group = new THREE.Group();
+      group.position.set(...spec.pos);
+      group.rotation.y = spec.rotY;
+
+      const labelCanvas = document.createElement('canvas');
+      labelCanvas.width = 256;
+      labelCanvas.height = 64;
+      const labelContext = labelCanvas.getContext('2d');
+      const labelTexture = new THREE.CanvasTexture(labelCanvas);
+      const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture, transparent: true }));
+      labelSprite.position.set(0, 2.35, 0);
+      labelSprite.scale.set(2.4, 0.6, 1);
+      group.add(labelSprite);
+
+      group.visible = false;
+      this.scene.add(group);
+
+      const character = {
+        rel: spec.rel,
+        group,
+        labelCanvas,
+        labelTexture,
+        labelContext,
+        model: null,
+      };
+      this.characters.push(character);
+      attachModel(character);
+    });
+
     this.planeGeometry = new THREE.PlaneGeometry(1.15, 1.6);
     this.textures = {};
     this.objects = {};
@@ -191,9 +306,9 @@ class Renderer3D {
   fit() {
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
     this.camera.aspect = window.innerWidth / window.innerHeight;
-    const factor = Math.max(1, 1.25 / this.camera.aspect);
-    this.camera.position.set(0, 10.5 * factor, 11.5 * factor);
-    this.camera.lookAt(0, 0, 1.2);
+    const factor = Math.max(1, 1.35 / this.camera.aspect);
+    this.camera.position.set(0, 10 * factor, 18 * factor);
+    this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
   }
 
@@ -289,6 +404,47 @@ class Renderer3D {
 
     const totalPlayers = state.n;
     const mySeat = Math.max(this.app.mySeat, 0);
+    const relativePlayer = new Array(4).fill(null);
+    for (let seat = 0; seat < totalPlayers; seat += 1) {
+      const relativeSeat = this.direction((seat - mySeat + totalPlayers) % totalPlayers, totalPlayers);
+      relativePlayer[relativeSeat] = {
+        name: state.players[seat].name,
+        team: seat % 2,
+        isBot: !!state.players[seat].isBot,
+        isMe: seat === mySeat,
+      };
+    }
+    this.characters.forEach((character) => {
+      const player = relativePlayer[character.rel];
+      if (!player) {
+        character.group.visible = false;
+        return;
+      }
+      if (player.isMe) {
+        character.group.visible = false;
+        return;
+      }
+      character.group.visible = true;
+      if (character.model && character.baseY !== undefined) {
+        character.model.position.y = character.baseY;
+      }
+      const context = character.labelContext;
+      context.clearRect(0, 0, 256, 64);
+      context.font = 'bold 26px sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillStyle = '#ffffff';
+      context.shadowColor = '#000000';
+      context.shadowBlur = 4;
+      context.fillText(player.name, 128, 22);
+      if (player.isBot) {
+        context.font = '16px sans-serif';
+        context.fillStyle = '#dddddd';
+        context.fillText('BOT', 128, 48);
+      }
+      character.labelTexture.needsUpdate = true;
+    });
+
     const wanted = {};
 
     for (let seat = 0; seat < totalPlayers; seat += 1) {
@@ -308,17 +464,17 @@ class Renderer3D {
           position = [offset * 1.35, 1.1, 6.2];
           rotationX = -1.0;
         } else {
-          rotationX = Math.PI / 2;
+          rotationX = 1.0;
           if (relativeSeat === 2) {
-            position = [offset * 0.9, 0.05, -5.2];
+            position = [offset * 0.9, 1.05, -4.9];
           } else if (relativeSeat === 1) {
-            position = [-6.4, 0.05, offset * 0.9];
+            position = [-6.0, 1.05, offset * 0.9];
             rotationY = Math.PI / 2;
           } else if (relativeSeat === 3) {
-            position = [6.4, 0.05, offset * 0.9];
+            position = [6.0, 1.05, offset * 0.9];
             rotationY = Math.PI / 2;
           } else {
-            position = [offset * 0.9, 0.05, 6];
+            position = [offset * 0.9, 1.05, 6];
           }
         }
 
@@ -603,5 +759,4 @@ class TrucoApp {
   }
 }
 
-const app = new TrucoApp();
-</script></body></html>
+const app = new TrucoApp();</script></body></html>

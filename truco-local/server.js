@@ -11,7 +11,13 @@ const { RoomStore } = require('./src/services/RoomStore');
 const { ClientRegistry } = require('./src/services/ClientRegistry');
 const { BotAI } = require('./src/ai/BotAI');
 
-const PORT = process.env.PORT || 3000;
+const argv = process.argv.slice(2);
+const argumentValue = (name) => {
+  const index = argv.indexOf(name);
+  return index >= 0 ? argv[index + 1] : undefined;
+};
+const PORT = Number(process.env.PORT || argumentValue('--port') || 3000);
+const HOST = process.env.HOST || argumentValue('--host') || '0.0.0.0';
 const roomStore = new RoomStore();
 const clientRegistry = new ClientRegistry();
 
@@ -266,7 +272,7 @@ http
       }
     );
   })
-  .listen(PORT, '0.0.0.0', () => {
+  .listen(PORT, HOST, () => {
     console.log('\n🃏 Truco Mineiro 3D rodando!\n  Local:  http://localhost:' + PORT);
     for (const networkInterface of Object.values(os.networkInterfaces()).flat()) {
       if (networkInterface && networkInterface.family === 'IPv4' && !networkInterface.internal) {

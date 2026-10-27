@@ -72,7 +72,7 @@ export class GameScene {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.5;
+    this.renderer.toneMappingExposure = 1.35;
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
     this.scene.background = new THREE.Color(0x0d0703);
     this.scene.fog = new THREE.FogExp2(0x160d06, 0.014);
@@ -265,7 +265,7 @@ export class GameScene {
 
   private createOwnCardTarget(card: string, offset: number): CardTarget {
     return {
-      p: [offset * 1.35 * WORLD_SCALE, TABLE_TOP + 0.95, 6.2 * WORLD_SCALE],
+      p: [offset * 1.35 * WORLD_SCALE, TABLE_TOP + 0.3, 5.0],
       rx: -1,
       ry: 0,
       rz: 0,
@@ -357,9 +357,9 @@ export class GameScene {
     // em telas estreitas, abre o FOV em vez de afastar demais a câmera
     this.camera.fov = this.camera.aspect >= 1 ? 45 : Math.min(64, 45 / Math.sqrt(this.camera.aspect));
     const factor = Math.max(1, 0.95 / this.camera.aspect);
-    const camY = Math.min(5.4 * factor, 8); // permanece abaixo do teto
+    const camY = Math.min(6.4 * factor, 8); // permanece abaixo do teto
     this.camera.position.set(0, camY, 9.6 * factor);
-    this.camera.lookAt(0, 1.6, 0);
+    this.camera.lookAt(0, 1.3, 0);
     this.camera.updateProjectionMatrix();
   };
 

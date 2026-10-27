@@ -513,14 +513,14 @@ export function createMonkeyBarEnvironment(floorY = 0): MonkeyBarEnvironment {
   group.add(dust);
 
   /* ---------- luzes do salão ---------- */
-  group.add(new THREE.HemisphereLight(0xffe2b8, 0x3a2412, 1.25));
+  group.add(new THREE.HemisphereLight(0xffd9a0, 0x3a2412, 1.1));
 
   const sunThroughWindow = new THREE.DirectionalLight(0xffd9a8, 1.5);
   sunThroughWindow.position.set(14, 7, WINDOW_Z);
   sunThroughWindow.target.position.set(0, 0, -3);
   group.add(sunThroughWindow, sunThroughWindow.target);
 
-  const spot = new THREE.SpotLight(0xffedc9, 380, 55, Math.PI / 3.4, 0.65, 1.6);
+  const spot = new THREE.SpotLight(0xffc063, 300, 55, Math.PI / 3.4, 0.65, 1.6);
   spot.position.set(0, 9.5, 2);
   spot.target.position.set(0, 2.2, 0.5);
   spot.castShadow = true;

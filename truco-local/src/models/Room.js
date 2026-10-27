@@ -293,9 +293,12 @@ class Room {
   }
 
   viewFor(playerId) {
-    const clone = JSON.parse(JSON.stringify(this));
-    delete clone.botTimer;
-    delete clone.lastActivity;
+    const state = {
+      ...this,
+      botTimer: null,
+      lastActivity: undefined,
+    };
+    const clone = JSON.parse(JSON.stringify(state));
     if (clone.hands) {
       for (const seat in clone.hands) {
         if (this.players[seat] && this.players[seat].id !== playerId) {

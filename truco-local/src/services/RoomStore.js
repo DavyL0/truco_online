@@ -29,15 +29,6 @@ class RoomStore {
     return room;
   }
 
-  has(code) {
-    return Object.prototype.hasOwnProperty.call(this.rooms, code);
-  }
-
-  touch(code) {
-    const room = this.rooms[code];
-    if (room) room.lastActivity = Date.now();
-  }
-
   cleanupExpiredRooms() {
     const now = Date.now();
     for (const code of Object.keys(this.rooms)) {

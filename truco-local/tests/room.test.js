@@ -60,6 +60,20 @@ test('viewFor hides other players cards', () => {
   assert.notEqual(view.hands[0][0], 'X');
 });
 
+test('viewFor serializes safely while a bot timer is active', () => {
+  const room = new Room('TEST', 'h1', 'Human');
+  room.addPlayer('h2', 'Human 2');
+  room.startMatch();
+  room.botTimer = setTimeout(() => {}, 1000);
+
+  const view = room.viewFor('h1');
+
+  clearTimeout(room.botTimer);
+  assert.equal(view.botTimer, null);
+  assert.equal(view.lastActivity, undefined);
+  assert.deepEqual(view.hands[1], ['X', 'X', 'X']);
+});
+
 test('bot always returns a usable decision', () => {
   const room = new Room('TEST', 'h1', 'Human');
   room.addBot('Bot');

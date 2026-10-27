@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { ActionBar } from "@/components/ActionBar";
+import { CenterAnnounce } from "@/components/CenterAnnounce";
+import { GameHelp } from "@/components/GameHelp";
 import { HomeScreen } from "@/components/HomeScreen";
 import { LobbyScreen } from "@/components/LobbyScreen";
 import { ScoreBoard } from "@/components/ScoreBoard";
@@ -46,13 +48,16 @@ export default function GamePage() {
       <div ref={sceneHostRef} className="absolute inset-0 [&>canvas]:h-full [&>canvas]:w-full" />
 
       {!game.state || !game.code ? (
-        <HomeScreen
-          defaultName={game.savedName}
-          defaultCode={game.roomCodeFromUrl}
-          isConnecting={game.isConnecting}
-          error={game.error}
-          onConnect={game.connect}
-        />
+        <>
+          <HomeScreen
+            defaultName={game.savedName}
+            defaultCode={game.roomCodeFromUrl}
+            isConnecting={game.isConnecting}
+            error={game.error}
+            onConnect={game.connect}
+          />
+          <GameHelp />
+        </>
       ) : null}
 
       {game.state && game.code && game.state.phase === "lobby" ? (
@@ -68,6 +73,8 @@ export default function GamePage() {
       {game.state && game.state.phase !== "lobby" ? (
         <>
           <ScoreBoard state={game.state} />
+          <GameHelp />
+          <CenterAnnounce state={game.state} mySeat={game.mySeat} />
           <ActionBar
             state={game.state}
             mySeat={game.mySeat}

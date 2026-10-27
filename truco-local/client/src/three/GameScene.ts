@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { GameState } from "@/types/game";
 import { createCardTexture } from "@/three/createCardTexture";
 import { createMonkeyChair, type MonkeyChair } from "@/three/createMonkeyChair";
+import { createMonkeyBarEnvironment, type MonkeyBarEnvironment } from "@/three/createMonkeyBarEnvironment";
 
 interface SceneCharacter {
   rel: number;
@@ -26,11 +27,14 @@ interface GameSceneOptions {
   onPick: (card: string) => void;
 }
 
+const WORLD_SCALE = 0.6;
+const TABLE_TOP = 2.6; // metade da altura dos personagens (5.2)
+
 const CHARACTER_SPECS = [
-  { rel: 0, position: [0, 0, 10] as const, rotationY: Math.PI },
-  { rel: 2, position: [0, 0, -10] as const, rotationY: 0 },
-  { rel: 1, position: [-10, 0, 0] as const, rotationY: Math.PI / 2 },
-  { rel: 3, position: [10, 0, 0] as const, rotationY: -Math.PI / 2 },
+  { rel: 0, position: [0, -0.42, 6] as const, rotationY: Math.PI },
+  { rel: 2, position: [0, -0.42, -6] as const, rotationY: 0 },
+  { rel: 1, position: [-6, -0.42, 0] as const, rotationY: Math.PI / 2 },
+  { rel: 3, position: [6, -0.42, 0] as const, rotationY: -Math.PI / 2 },
 ];
 
 const TABLE_SPOTS = [
@@ -38,7 +42,7 @@ const TABLE_SPOTS = [
   [-2.2, 0.1],
   [0.3, -1.4],
   [2.4, 0.1],
-];
+].map(([x, z]) => [x * WORLD_SCALE, z * WORLD_SCALE]);
 
 export class GameScene {
   private readonly host: HTMLElement;
@@ -54,6 +58,8 @@ export class GameScene {
   private hover: string | null = null;
   private interactionEnabled = false;
   private animationFrame = 0;
+  private readonly clock = new THREE.Clock();
+  private readonly environment: MonkeyBarEnvironment;
 
   constructor(host: HTMLElement, options: GameSceneOptions) {
     this.host = host;
@@ -63,10 +69,16 @@ export class GameScene {
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.5;
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    this.scene.background = new THREE.Color(0x0d1512);
+    this.scene.background = new THREE.Color(0x0d0703);
+    this.scene.fog = new THREE.FogExp2(0x160d06, 0.014);
 
-    this.configureLights();
+    this.environment = createMonkeyBarEnvironment(-0.42);
+    this.scene.add(this.environment.group);
     this.configureTable();
     this.configureCharacters();
     this.fit();
@@ -113,7 +125,7 @@ export class GameScene {
       const relativeSeat = this.direction((entry.s - safeMySeat + totalPlayers) % totalPlayers, totalPlayers);
       const spot = TABLE_SPOTS[relativeSeat];
       wantedCards[entry.c] = {
-        p: [spot[0], 0.06 + index * 0.01, spot[1]],
+        p: [spot[0], TABLE_TOP + 0.06 + index * 0.01, spot[1]],
         rx: -Math.PI / 2,
         ry: relativeSeat % 2 ? 0.35 : relativeSeat === 0 ? 0.12 : -0.1,
         rz: 0,
@@ -140,6 +152,7 @@ export class GameScene {
     window.removeEventListener("resize", this.fit);
     this.canvas.removeEventListener("pointermove", this.handlePointerMove);
     this.canvas.removeEventListener("pointerdown", this.handlePointerDown);
+    this.environment.dispose();
     this.renderer.dispose();
     this.planeGeometry.dispose();
     this.textures.forEach((texture) => texture.dispose());
@@ -153,13 +166,6 @@ export class GameScene {
     this.canvas.remove();
   }
 
-  private configureLights(): void {
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.65));
-    const directionalLight = new THREE.DirectionalLight(0xfff1d0, 0.8);
-    directionalLight.position.set(4, 12, 6);
-    this.scene.add(directionalLight);
-  }
-
   private configureTable(): void {
     const textureLoader = new THREE.TextureLoader();
     const tableTexture = textureLoader.load("/texture/fundo_mesa.jpg");
@@ -167,24 +173,51 @@ export class GameScene {
     tableTexture.wrapT = THREE.RepeatWrapping;
     tableTexture.repeat.set(2, 2);
 
-    const table = new THREE.Mesh(
-      new THREE.CylinderGeometry(8.8, 8.8, 0.4, 64),
-      new THREE.MeshStandardMaterial({ map: tableTexture, roughness: 0.85 }),
+    const tableRadius = 8.8 * WORLD_SCALE;
+    const tableMaterial = new THREE.MeshStandardMaterial({ map: tableTexture, roughness: 0.85 });
+
+    // tampo: metade da altura dos personagens (5.2)
+    const top = new THREE.Mesh(
+      new THREE.CylinderGeometry(tableRadius, tableRadius - 0.3, 0.18, 64),
+      tableMaterial,
     );
-    table.scale.z = 0.8;
-    table.position.y = -0.2;
-    this.scene.add(table);
+    top.scale.z = 0.8;
+    top.position.y = TABLE_TOP - 0.09;
+    top.receiveShadow = true;
+    top.castShadow = true;
+    this.scene.add(top);
+
+    // pedestal de madeira: coluna estreita + base no chão (y=-0.42)
+    const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x7a4f28, roughness: 0.75 });
+    const column = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.35, 1.8, TABLE_TOP - 0.24, 32),
+      woodMaterial,
+    );
+    column.position.y = (TABLE_TOP - 0.24) / 2 - 0.42 + 0.05;
+    column.receiveShadow = true;
+    column.castShadow = true;
+    this.scene.add(column);
+
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.3, 2.5, 0.22, 32),
+      woodMaterial,
+    );
+    base.position.y = -0.42 + 0.11;
+    base.receiveShadow = true;
+    base.castShadow = true;
+    this.scene.add(base);
 
     const borderTexture = textureLoader.load("/texture/borda_mesa.jpg");
     borderTexture.wrapS = THREE.RepeatWrapping;
     borderTexture.wrapT = THREE.RepeatWrapping;
     const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(8.8, 0.4, 16, 64),
+      new THREE.TorusGeometry(tableRadius - 0.05, 0.22, 16, 64),
       new THREE.MeshStandardMaterial({ map: borderTexture, roughness: 0.5 }),
     );
     rim.rotation.x = Math.PI / 2;
     rim.scale.y = 0.8;
-    rim.position.y = -0.05;
+    rim.position.y = TABLE_TOP - 0.06;
+    rim.receiveShadow = true;
     this.scene.add(rim);
   }
 
@@ -206,9 +239,10 @@ export class GameScene {
     const model = createMonkeyChair();
     const bounds = new THREE.Box3().setFromObject(model);
     const size = bounds.getSize(new THREE.Vector3());
-    const scale = (2 / (size.y || 1)) * 5;
+    const scale = 5.2 / (size.y || 1);
     model.scale.setScalar(scale);
-    model.position.y = -bounds.getCenter(new THREE.Vector3()).y * scale;
+    // alinha pela base (pés da cadeira) para ficar em cima do chão
+    model.position.y = -bounds.min.y * scale;
     model.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.castShadow = true;
@@ -231,7 +265,7 @@ export class GameScene {
 
   private createOwnCardTarget(card: string, offset: number): CardTarget {
     return {
-      p: [offset * 1.35, 1.1, 6.2],
+      p: [offset * 1.35 * WORLD_SCALE, TABLE_TOP + 0.95, 6.2 * WORLD_SCALE],
       rx: -1,
       ry: 0,
       rz: 0,
@@ -320,9 +354,12 @@ export class GameScene {
     const height = this.host.clientHeight || window.innerHeight;
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
-    const factor = Math.max(1, 1.35 / this.camera.aspect);
-    this.camera.position.set(0, 10 * factor, 18 * factor);
-    this.camera.lookAt(0, 0, 0);
+    // em telas estreitas, abre o FOV em vez de afastar demais a câmera
+    this.camera.fov = this.camera.aspect >= 1 ? 45 : Math.min(64, 45 / Math.sqrt(this.camera.aspect));
+    const factor = Math.max(1, 0.95 / this.camera.aspect);
+    const camY = Math.min(5.4 * factor, 8); // permanece abaixo do teto
+    this.camera.position.set(0, camY, 9.6 * factor);
+    this.camera.lookAt(0, 1.6, 0);
     this.camera.updateProjectionMatrix();
   };
 
@@ -363,6 +400,8 @@ export class GameScene {
   private startLoop(): void {
     const animate = () => {
       this.animationFrame = requestAnimationFrame(animate);
+      const delta = this.clock.getDelta();
+      this.environment.update(this.clock.elapsedTime, delta);
       this.updateCards();
       this.renderer.render(this.scene, this.camera);
     };
@@ -375,8 +414,8 @@ export class GameScene {
       if (!target) return;
       const position = new THREE.Vector3(...target.p);
       if (this.hover === key) {
-        position.y += 0.5;
-        position.z -= 0.6;
+        position.y += 0.3;
+        position.z -= 0.36;
       }
       group.position.lerp(position, 0.14);
       group.rotation.x += (target.rx - group.rotation.x) * 0.14;

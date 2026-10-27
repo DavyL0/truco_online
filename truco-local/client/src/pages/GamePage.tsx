@@ -42,7 +42,7 @@ export default function GamePage() {
   }, [game.canPlay]);
 
   return (
-    <main className="h-screen w-screen overflow-hidden bg-[#0d1512] text-[#f3ead6]">
+    <main className="h-screen w-screen overflow-hidden bg-[#0d0703] text-[#f3ead6]">
       <div ref={sceneHostRef} className="absolute inset-0 [&>canvas]:h-full [&>canvas]:w-full" />
 
       {!game.state || !game.code ? (

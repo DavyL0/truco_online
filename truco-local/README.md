@@ -44,41 +44,37 @@ tests/                  # testes do servidor (node --test)
 | `npm run check` | Checa sintaxe dos arquivos do servidor |
 | `npm run lint` | ESLint no client |
 
-## Deploy (front na Vercel + servidor no Render)
+## Deploy (monolito no Render)
 
-O servidor do jogo é stateful (salas em memória, SSE, timers de bot) — ele precisa de um host Node contínuo. Não funciona como função serverless.
+O Node serve o front (`dist/`) e a API na **mesma URL** — sem CORS, sem variável de ambiente no client. O servidor do jogo é stateful (salas em memória, SSE, timers de bot), por isso precisa de um host Node contínuo — não funciona como função serverless.
 
-O repositório tem o jogo dentro da pasta `truco-local`; os dois serviços usam o mesmo repo e apontam o **Root Directory** para ela.
+### 1. Criar o serviço (https://dashboard.render.com → New → Web Service)
 
-### 1. Servidor no Render (https://dashboard.render.com → New → Web Service)
-
-- Conecte o repositório do GitHub. O `render.yaml` na pasta `truco-local` já traz a configuração (Render detecta o blueprint automaticamente se o arquivo estiver na raiz do repo — caso contrário, configure manualmente):
+- Conecte o repositório do GitHub. O `render.yaml` na raiz do repo já traz a configuração:
   - **Root Directory:** `truco-local`
   - **Build Command:** `npm install && npm run build`
   - **Start Command:** `npm start`
-  - **Environment Variables:**
-    - `HOST` = `0.0.0.0`
-    - `ALLOWED_ORIGINS` = `https://truco-online-eight.vercel.app`
-- Ao final, anote a URL pública (ex.: `https://truco-api.onrender.com`).
+  - **Environment Variables:** `HOST` = `0.0.0.0` (o único necessário)
+- Pronto — a URL pública do Render (ex.: `https://truco-online-1-wltb.onrender.com`) é o jogo completo.
 
-⚠️ No plano gratuito o serviço "dorme" após ~15 min sem tráfego. Para segurar o plano grátis, o repositório já tem `.github/workflows/keep-alive.yml` — basta:
+### 2. Segurar o plano grátis (keep-alive)
+
+No plano gratuito o serviço "dorme" após ~15 min sem tráfego. O repositório já tem `.github/workflows/keep-alive.yml` — basta:
 
 1. No GitHub: **Settings → Secrets and variables → Actions → Variables → New repository variable**:
-   - Name: `RENDER_URL` · Value: a URL do servidor (ex.: `https://truco-api.onrender.com`)
+   - Name: `RENDER_URL` · Value: a URL do serviço (ex.: `https://truco-online-1-wltb.onrender.com`)
 2. Faça merge/push do workflow para a branch padrão (o cron só roda nela).
 
 O workflow pinga o servidor a cada 10 minutos. Observações: o GitHub pode pausar crons de repositórios sem atividade há 60+ dias (você recebe um e-mail e pode reativar com um clique), e o plano grátis do Render tem teto de 750 h/mês — um serviço 24/7 usa ~720 h, então evite manter outros serviços acordados na mesma conta.
 
-### 2. Front na Vercel (https://vercel.com)
-
-- **Root Directory:** `truco-local` (o `vercel.json` já define o build do Vite).
-- **Environment Variables** (seção do projeto → Settings → Environment Variables):
-  - `VITE_API_URL` = URL do servidor do passo 1 (ex.: `https://truco-api.onrender.com`) — **sem barra no final**
-- Faça **Redeploy** (a variável só entra no build novo).
-
 ### 3. Validar
 
-Abra o app na Vercel, crie uma sala e confira no DevTools (Network) se o `POST /api/create` vai para o domínio do Render e retorna 200 com JSON.
+Abra a URL do Render, crie uma sala e jogue. No DevTools (Network), o `POST /api/create` deve ir para o **mesmo domínio** da página e retornar 200 com JSON.
+
+### Opcional: domínio próprio e Vercel
+
+- Para um endereço mais amigável, o Render permite **custom domain** grátis (Settings → Custom Domains) — ex.: `truco.seudominio.com`.
+- Se um dia quiser voltar a servir o front pela Vercel: defina `VITE_API_URL` nas variáveis de build do projeto Vercel (URL do servidor, sem barra no final) e liste as origens da Vercel em `ALLOWED_ORIGINS` no servidor (suporta wildcard, ex.: `https://*.vercel.app`).
 
 ## API
 

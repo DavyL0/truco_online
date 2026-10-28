@@ -1,0 +1,16 @@
+# Deploy do servidor do jogo no Render (https://render.com)
+# O repositório no Render deve ser o MESMO do GitHub; o rootDir abaixo já aponta para truco-local.
+services:
+  - type: web
+    name: truco-api
+    runtime: node
+    plan: free
+    rootDir: truco-local
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: ALLOWED_ORIGINS
+        sync: false # preencha no painel: https://truco-online-eight.vercel.app

@@ -1,0 +1,25 @@
+name: keep-alive
+
+# Mantém o servidor do jogo no Render (plano gratuito) acordado:
+# o serviço "dorme" após ~15 min sem tráfego, então pingamos a cada 10 minutos.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # permite disparar manualmente para testar
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping no servidor do jogo
+        run: |
+          for attempt in 1 2 3; do
+            if curl -fsS -o /dev/null -w "HTTP %{http_code}\n" "${{ vars.RENDER_URL }}/"; then
+              echo "Servidor respondendo."
+              exit 0
+            fi
+            echo "Tentativa ${attempt} falhou; aguardando 30s..."
+            sleep 30
+          done
+          echo "Servidor não respondeu após 3 tentativas."
+          exit 1

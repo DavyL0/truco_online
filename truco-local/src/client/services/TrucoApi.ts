@@ -1,5 +1,9 @@
 import type { GameAction, GameState } from "@/types/game";
 
+// Base da API configurável em deploy: defina VITE_API_URL no build (ex.: https://api.seujogo.com).
+// Sem a variável, as chamadas são relativas (mesma origem) — funciona em dev e no monolito.
+const API_BASE: string = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
 interface RoomCredentials {
   code?: string;
   token?: string | null;
@@ -8,7 +12,7 @@ interface RoomCredentials {
 
 export class TrucoApi {
   private async post<T>(url: string, body: unknown): Promise<T> {
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE}${url}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -42,7 +46,7 @@ export function openGameStream(
   onState: (state: GameState) => void
 ): EventSource {
   const source = new EventSource(
-    `/api/events?code=${encodeURIComponent(code)}&id=${encodeURIComponent(userId)}&token=${encodeURIComponent(token ?? "")}`
+    `${API_BASE}/api/events?code=${encodeURIComponent(code)}&id=${encodeURIComponent(userId)}&token=${encodeURIComponent(token ?? "")}`
   );
   source.onmessage = (event) => onState(JSON.parse(event.data) as GameState);
   return source;

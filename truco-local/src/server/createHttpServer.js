@@ -23,8 +23,28 @@ function clean(value, maxLength) {
   return String(value || '').slice(0, maxLength);
 }
 
-function sendJson(response, payload, statusCode = 200) {
-  response.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+// CORS: defina ALLOWED_ORIGINS com as origens do front separadas por vírgula
+// (ex.: "https://truco-online-eight.vercel.app"). Use "*" para liberar qualquer origem.
+function corsHeaders(request) {
+  const allowed = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const origin = request.headers.origin;
+  if (!origin) return {};
+  if (allowed.includes('*') || allowed.includes(origin)) {
+    return {
+      'Access-Control-Allow-Origin': origin,
+      Vary: 'Origin',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+  }
+  return {};
+}
+
+function sendJson(response, payload, statusCode = 200, extraHeaders = {}) {
+  response.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8', ...extraHeaders });
   response.end(JSON.stringify(payload));
 }
 
@@ -146,6 +166,7 @@ function createHttpServer({ roomStore, clientRegistry, staticPaths }) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
+      ...corsHeaders(request),
     });
 
     const client = { id, res: response };
@@ -160,18 +181,19 @@ function createHttpServer({ roomStore, clientRegistry, staticPaths }) {
   }
 
   async function handleApiPost(request, response, url) {
+    const reply = (payload, statusCode = 200) => sendJson(response, payload, statusCode, corsHeaders(request));
     const body = await readBody(request);
     const id = clean(body.id, 40);
     const name = clean(body.name, 14).trim() || 'Jogador';
 
     if (!id) {
-      sendJson(response, { error: 'id inválido' }, 400);
+      reply({ error: 'id inválido' }, 400);
       return;
     }
 
     if (url.pathname === '/api/create') {
       const room = roomStore.create(id, name);
-      sendJson(response, { code: room.code, token: room.players[0].token });
+      reply({ code: room.code, token: room.players[0].token });
       return;
     }
 
@@ -179,23 +201,23 @@ function createHttpServer({ roomStore, clientRegistry, staticPaths }) {
       const code = clean(body.code, 8).toUpperCase();
       const room = roomStore.get(code);
       if (!room) {
-        sendJson(response, { error: 'Sala não encontrada.' });
+        reply({ error: 'Sala não encontrada.' });
         return;
       }
       if (!room.hasPlayer(id)) {
         if (room.phase !== 'lobby') {
-          sendJson(response, { error: 'A partida já começou.' });
+          reply({ error: 'A partida já começou.' });
           return;
         }
         if (room.players.length >= 4) {
-          sendJson(response, { error: 'Sala cheia.' });
+          reply({ error: 'Sala cheia.' });
           return;
         }
         room.addPlayer(id, name);
         commit(room);
       }
       const player = room.players.find((item) => item.id === id);
-      sendJson(response, { code, token: player?.token ?? null });
+      reply({ code, token: player?.token ?? null });
       return;
     }
 
@@ -206,15 +228,15 @@ function createHttpServer({ roomStore, clientRegistry, staticPaths }) {
       const player = room?.players.find((item) => item.id === id);
 
       if (!room) {
-        sendJson(response, { error: 'sala' }, 404);
+        reply({ error: 'sala' }, 404);
         return;
       }
       if (!player || player.isBot) {
-        sendJson(response, { error: 'jogador inválido' }, 403);
+        reply({ error: 'jogador inválido' }, 403);
         return;
       }
       if (player.token !== token) {
-        sendJson(response, { error: 'token inválido' }, 403);
+        reply({ error: 'token inválido' }, 403);
         return;
       }
 
@@ -223,11 +245,11 @@ function createHttpServer({ roomStore, clientRegistry, staticPaths }) {
       if (room.phase === 'show' && previousPhase === 'play') scheduleNextDeal(room);
       commit(room);
       scheduleBotTurn(room);
-      sendJson(response, { ok: 1 });
+      reply({ ok: 1 });
       return;
     }
 
-    sendJson(response, { error: 'rota' }, 404);
+    reply({ error: 'rota' }, 404);
   }
 
   function handleStaticFile(response, url) {
@@ -262,7 +284,13 @@ function createHttpServer({ roomStore, clientRegistry, staticPaths }) {
   return http.createServer(async (request, response) => {
     const url = new URL(request.url, 'http://localhost');
     if (!checkRateLimit(request.socket.remoteAddress || 'unknown')) {
-      sendJson(response, { error: 'Muitas requisições. Tente novamente em instantes.' }, 429);
+      sendJson(response, { error: 'Muitas requisições. Tente novamente em instantes.' }, 429, corsHeaders(request));
+      return;
+    }
+
+    if (request.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
+      response.writeHead(204, corsHeaders(request));
+      response.end();
       return;
     }
 
@@ -281,7 +309,7 @@ function createHttpServer({ roomStore, clientRegistry, staticPaths }) {
       return;
     }
 
-    sendJson(response, { error: 'Método não permitido' }, 405);
+    sendJson(response, { error: 'Método não permitido' }, 405, corsHeaders(request));
   });
 }
 

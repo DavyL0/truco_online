@@ -19,10 +19,10 @@ const childOptions = {
 
 const rootDir = path.resolve(__dirname, '..');
 const serverEntryPoint = path.join(rootDir, 'server.js');
-const viteEntryPoint = path.join(rootDir, 'client', 'node_modules', 'vite', 'bin', 'vite.js');
+const viteEntryPoint = path.join(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
 const viteOptions = {
   ...childOptions,
-  cwd: path.join(rootDir, 'client'),
+  cwd: rootDir,
 };
 
 const children = [

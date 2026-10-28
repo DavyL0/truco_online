@@ -254,7 +254,7 @@ function createHttpServer({ roomStore, clientRegistry, staticPaths }) {
     }
 
     const builtIndex = path.join(staticPaths.clientDist, 'index.html');
-    const fallbackIndex = path.join(staticPaths.publicDir, 'index.html');
+    const fallbackIndex = path.join(staticPaths.staticDir, 'index.html');
     const indexPath = fs.existsSync(builtIndex) ? builtIndex : fallbackIndex;
     sendFile(response, indexPath);
   }

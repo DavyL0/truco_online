@@ -21,8 +21,8 @@ const server = createHttpServer({
   roomStore: new RoomStore(),
   clientRegistry: new ClientRegistry(),
   staticPaths: {
-    clientDist: path.join(rootDir, 'client', 'dist'),
-    publicDir: path.join(rootDir, 'public'),
+    clientDist: path.join(rootDir, 'dist'),
+    staticDir: path.join(rootDir, 'static'),
     textureDir: path.join(rootDir, 'src', 'texture'),
   },
 });

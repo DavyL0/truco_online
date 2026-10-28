@@ -24,7 +24,9 @@ function clean(value, maxLength) {
 }
 
 // CORS: defina ALLOWED_ORIGINS com as origens do front separadas por vírgula
-// (ex.: "https://truco-online-eight.vercel.app"). Use "*" para liberar qualquer origem.
+// (ex.: "https://truco-online-eight.vercel.app,https://*.vercel.app").
+// Entradas começando com "*." casam qualquer subdomínio (útil para os URLs de
+// preview que a Vercel gera por deploy). Use "*" para liberar qualquer origem.
 function corsHeaders(request) {
   const allowed = (process.env.ALLOWED_ORIGINS || '')
     .split(',')
@@ -32,7 +34,12 @@ function corsHeaders(request) {
     .filter(Boolean);
   const origin = request.headers.origin;
   if (!origin) return {};
-  if (allowed.includes('*') || allowed.includes(origin)) {
+  const isAllowed = allowed.includes('*') || allowed.some((entry) => {
+    const wildcard = entry.indexOf('*.');
+    if (wildcard >= 0) return origin.endsWith(entry.slice(wildcard + 1));
+    return entry === origin;
+  });
+  if (isAllowed) {
     return {
       'Access-Control-Allow-Origin': origin,
       Vary: 'Origin',
